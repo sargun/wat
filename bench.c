@@ -14,6 +14,8 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "rdtscp.h"
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define unlikely(expr) __builtin_expect(!!(expr), 0)
 #define RING_SIZE 8
@@ -51,15 +53,6 @@ int compare_fn(uint64_t *a, uint64_t *b) {
 		return 1;
 	else
 		return 0;
-}
-
-static inline uint64_t rdtscp(void) {
-  uint32_t lo, hi;
-  __asm__ volatile ("rdtscp"
-      : /* outputs */ "=a" (lo), "=d" (hi)
-      : /* no inputs */
-      : /* clobbers */ "%rcx");
-  return (uint64_t)lo | (((uint64_t)hi) << 32);
 }
 
 uint64_t times[RING_SIZE * ITERATIONS] = {};
