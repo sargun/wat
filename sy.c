@@ -19,6 +19,6 @@ int main(int argc, char *argv[]) {
 	}
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	total_time = 1000000000 * (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
-	printf("Time per iteration: %lld\n", total_time / ITERATIONS);
+	printf("NS per iteration: %lld\n", total_time / ITERATIONS);
 }
 
