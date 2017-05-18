@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/syscall.h>
 
 #include "rdtscp.h"
 #include "util.h"
@@ -49,8 +50,8 @@ int do_send(int in, int out) {
 	start = rdtscp();
 	for (i = 0; i < (ITERATIONS * RING_SIZE); i++) {
 		p.val = numbers[i % RING_SIZE];
-		msgsnd(out, &p, sizeof(p) - sizeof(long), 0);
-		msgrcv(in, &p, sizeof(p) - sizeof(long), 0, 0);
+		syscall(SYS_msgsnd, out, &p, sizeof(p) - sizeof(long), 0);
+		syscall(SYS_msgrcv, in, &p, sizeof(p) - sizeof(long), 0, 0);
 		retsum = retsum + p.val;
 
 		end = rdtscp();
@@ -79,9 +80,9 @@ int do_recv(int in, int out) {
 	int i;
 
 	for (i = 0; i < (ITERATIONS * RING_SIZE); i++) {
-		msgrcv(in, &p, sizeof(p) - sizeof(long), 0, 0);
+		syscall(SYS_msgrcv, in, &p, sizeof(p) - sizeof(long), 0, 0);
 		p.val = p.val * 2;
-		msgsnd(out, &p, sizeof(p) - sizeof(long), 0);
+		syscall(SYS_msgsnd, out,  &p, sizeof(p) - sizeof(long), 0);
 	}
 	return 0;
 }
