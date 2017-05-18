@@ -14,7 +14,9 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define unlikely(expr) __builtin_expect(!!(expr), 0)
+#include "util.h"
+#include "rdtscp.h"
+
 #define RING_SIZE 1024
 #define ITERATIONS 5000
 
@@ -42,34 +44,18 @@ int setup_fd(const char *name) {
 	return fd;
 }
 
-int compare_fn(uint64_t *a, uint64_t *b) {
-	if (a < b)
-		return -1;
-	else if (a > b)
-		return 1;
-	else
-		return 0;
-}
-
-static inline uint64_t rdtscp(void) {
-  uint32_t lo, hi;
-  __asm__ volatile ("rdtscp"
-      : /* outputs */ "=a" (lo), "=d" (hi)
-      : /* no inputs */
-      : /* clobbers */ "%rcx");
-  return (uint64_t)lo | (((uint64_t)hi) << 32);
-}
-
 uint64_t times[RING_SIZE * ITERATIONS] = {};
-int do_send(struct shm_mem *ptr) {
+
+void bench2(struct shm_mem *ptr) {
+	struct rusage usage_start, usage_end;
 	struct payload *snd_slot, *rcv_slot;
 	uint64_t start, end;
 	int numbers[RING_SIZE];
-	int sum = 0, retsum = 0;
-	long long total_time;
+	long long sum = 0, retsum = 0;
+	long long total_cycles = 0;
 	int i, x;
 
-	// Zero-out all the memory
+	/* Zero-out all the memory to avoid page faults */
 	memset(ptr, 0, sizeof(struct shm_mem));
 
 	for (i = 0; i < RING_SIZE * 2; i++) {
@@ -84,127 +70,56 @@ int do_send(struct shm_mem *ptr) {
 	}
 	sum = sum * ITERATIONS;
 
-	for (i = 0; i < RING_SIZE; i++) {
-		snd_slot = &ptr->payloads[(i % RING_SIZE) * 2];
-		rcv_slot = &ptr->payloads[((i % RING_SIZE) * 2) + 1];
-		snd_slot->val = numbers[i % RING_SIZE];
-		// Concurrency kit should insert a memory barrier here for us
-		ck_spinlock_fas_unlock(&snd_slot->spinlock);
-		//sched_yield();
-		ck_spinlock_fas_lock(&snd_slot->spinlock);
-		rcv_slot->val = snd_slot->val * 2;
-		ck_spinlock_fas_unlock(&rcv_slot->spinlock);
-
-		// Now do the receive
-		ck_spinlock_fas_lock(&rcv_slot->spinlock);
-	}
-
+	assert(!getrusage(RUSAGE_SELF, &usage_start));
 	start = rdtscp();
 	for (i = 0; i < (ITERATIONS * RING_SIZE); i++) {
 		snd_slot = &ptr->payloads[(i % RING_SIZE) * 2];
 		rcv_slot = &ptr->payloads[((i % RING_SIZE) * 2) + 1];
 		snd_slot->val = numbers[i % RING_SIZE];
-		// Concurrency kit should insert a memory barrier here for us
 		ck_spinlock_fas_unlock(&snd_slot->spinlock);
+
 		/* Receive Side */
 		ck_spinlock_fas_lock(&snd_slot->spinlock);
 		rcv_slot->val = snd_slot->val * 2;
 		ck_spinlock_fas_unlock(&rcv_slot->spinlock);
-
 		/* Receive Side */
-		// Now do the receive
+
 		ck_spinlock_fas_lock(&rcv_slot->spinlock);
 		retsum = retsum + rcv_slot->val;
+
+		/* Avoid calling rdtscp twice, so just move the value over */
 		end = rdtscp();
 		times[i] = end - start;
 		start = end;
 	}
+	assert(!getrusage(RUSAGE_SELF, &usage_end));
 
+	sort_uint64_t_array(times, ARRAY_SIZE(times));
 
-	qsort(times, sizeof(times)/sizeof(times[0]), sizeof(times[0]), compare_fn);
-	printf("Median Iteration Time: %lu\n", times[(sizeof(times)/sizeof(times[0]))/2]);
-	printf("Min Time: %lu\n", times[(sizeof(times)/sizeof(times[0]))-1]);
-//	total_time = 1000000000 * (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
-//	printf("Time per iteration: %lld\n", total_time / (ITERATIONS * RING_SIZE));
+	for (int i = 0; i < ARRAY_SIZE(times); i++)
+		total_cycles = total_cycles + times[i];
+
+	printf("Average cycles: %llu\n", total_cycles/ARRAY_SIZE(times));
+	printf("Median Iteration Cycles: %lu\n", times[ARRAY_SIZE(times)/2]);
+	printf("Min Cycles: %lu\n", times[0]);
+	printf("Invol Ctx Switches: %ld\nVoluntary Ctx Switches: %ld\n", usage_end.ru_nivcsw - usage_start.ru_nivcsw, usage_end.ru_nvcsw - usage_start.ru_nvcsw);
 	if (retsum != (sum * 2)) {
 		printf("Something broke\n");
+		printf("Sum: %llu\n", sum);
+		printf("RetSum: %llu\n", retsum);
 	}
-	printf("Sum: %d\n", sum);
-	printf("RetSum: %d\n", retsum);
-
-
-	return 0;
 }
-
-int do_recv(struct shm_mem *ptr) {
-	struct payload *snd_slot, *rcv_slot;
-	int i;
-
-	for (i = 0; i < ((ITERATIONS + 1) * RING_SIZE); i++) {
-		snd_slot = &ptr->payloads[(i % RING_SIZE) * 2];
-		rcv_slot = &ptr->payloads[((i % RING_SIZE) * 2) + 1];
-		// Wait for the "message"
-		ck_spinlock_fas_lock(&snd_slot->spinlock);
-		rcv_slot->val = snd_slot->val * 2;
-		// Now do the receive
-		ck_spinlock_fas_unlock(&rcv_slot->spinlock);
-	}
-	return 0;
-}
-
-#define MODE_SEND 0
-#define MODE_RECV 1
 
 int main(int argc, char *argv[]) {
-	struct rusage usage_start, usage_end;
 	struct shm_mem *ptr;
-	int mode;
-	int ret;
-	int fd;
 
-	if (argc != 2) {
-		printf("Mode?\n");
+	ptr = (struct shm_mem*) malloc(SHM_SIZE);
+	if (!ptr) {
+		perror("malloc");
 		return 1;
 	}
-	switch (argv[1][0]) {
-		case 's':
-			mode = MODE_SEND;
-			break;
-		case 'r':
-			mode = MODE_RECV;
-			break;
-		default:
-			printf("Wat?\n");
-			return 1;
-	}
 
+	bench2(ptr);
 
-	fd = setup_fd("woop");
-	if (mode == MODE_SEND) {
-		ret = ftruncate(fd, SHM_SIZE);
-		if (ret == -1) {
-			perror("ftruncate");
-			return -1;
-		}
-	}
-
-	ptr = (struct shm_mem*) mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	if (ptr == MAP_FAILED) {
-		perror("mmap");
-		return 1;
-	}
-	getrusage(RUSAGE_SELF, &usage_start);
-	switch (mode) {
-	case MODE_SEND:
-		ret = do_send(ptr);
-		break;
-	case MODE_RECV:
-		ret = do_recv(ptr);
-		break;
-	}
-
-	getrusage(RUSAGE_SELF, &usage_end);
-	printf("Invol Ctx Switches: %ld\nVoluntary Ctx Switches: %ld\n", usage_end.ru_nivcsw - usage_start.ru_nivcsw, usage_end.ru_nvcsw - usage_start.ru_nvcsw);
-
-	return ret;
+	return 0;
 }
