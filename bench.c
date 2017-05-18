@@ -15,9 +15,8 @@
 #include <time.h>
 
 #include "rdtscp.h"
+#include "util.h"
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#define unlikely(expr) __builtin_expect(!!(expr), 0)
 #define RING_SIZE 8
 #define ITERATIONS 5000000
 
@@ -44,15 +43,6 @@ int setup_fd(const char *name) {
 	}
 
 	return fd;
-}
-
-int compare_fn(uint64_t *a, uint64_t *b) {
-	if (*a < *b)
-		return -1;
-	else if (*a > *b)
-		return 1;
-	else
-		return 0;
 }
 
 uint64_t times[RING_SIZE * ITERATIONS] = {};
@@ -106,8 +96,7 @@ int do_send(struct shm_mem *ptr) {
 		start = end;
 	}
 
-
-	qsort(times, ARRAY_SIZE(times), sizeof(times[0]), compare_fn);
+	sort_uint64_t_array(times, ARRAY_SIZE(times));
 	printf("Median Iteration Time: %lu\n", times[ARRAY_SIZE(times)/2]);
 	printf("Min Time: %lu\n", times[0]);
 //	total_time = 1000000000 * (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
