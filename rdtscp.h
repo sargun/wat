@@ -1,5 +1,5 @@
 #ifndef _RDTSCP_H
-#define _RDTSCP_H
+#define _RDTSCP_H 1
 
 static inline uint64_t rdtscp(void) {
 	uint32_t lo, hi;
