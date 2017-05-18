@@ -44,7 +44,7 @@ int setup_fd(const char *name) {
 	return fd;
 }
 
-uint64_t times[RING_SIZE * ITERATIONS] = {};
+uint64_t times[RING_SIZE * ITERATIONS];
 
 void bench2(struct shm_mem *ptr) {
 	struct rusage usage_start, usage_end;
@@ -53,7 +53,7 @@ void bench2(struct shm_mem *ptr) {
 	int numbers[RING_SIZE];
 	long long sum = 0, retsum = 0;
 	long long total_cycles = 0;
-	int i, x;
+	long long i, x;
 
 	/* Zero-out all the memory to avoid page faults */
 	memset(ptr, 0, sizeof(struct shm_mem));
@@ -102,6 +102,7 @@ void bench2(struct shm_mem *ptr) {
 	printf("Average cycles: %llu\n", total_cycles/ARRAY_SIZE(times));
 	printf("Median Iteration Cycles: %lu\n", times[ARRAY_SIZE(times)/2]);
 	printf("Min Cycles: %lu\n", times[0]);
+	printf("Max Cycles: %lu\n", times[ARRAY_SIZE(times) - 1]);
 	printf("Invol Ctx Switches: %ld\nVoluntary Ctx Switches: %ld\n", usage_end.ru_nivcsw - usage_start.ru_nivcsw, usage_end.ru_nvcsw - usage_start.ru_nvcsw);
 	if (retsum != (sum * 2)) {
 		printf("Something broke\n");
@@ -118,6 +119,7 @@ int main(int argc, char *argv[]) {
 		perror("malloc");
 		return 1;
 	}
+	memset(times, 0, sizeof(times));
 
 	bench2(ptr);
 

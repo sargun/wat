@@ -15,7 +15,9 @@
 int compare_fn_##TYPE (const void *a, const void *b) { 	\
 	TYPE val1 = *((TYPE*)a); 			\
 	TYPE val2 = *((TYPE*)b); 			\
-	return val1 - val2; 				\
+	if (val1 > val2) return 1;			\
+	if (val1 < val2) return -1;			\
+	else return 0;					\
 }
 
 
@@ -24,7 +26,7 @@ compare_fn(TYPE) 					\
 static inline void					\
 sort_##TYPE##_array(TYPE arr[], int length) {		\
 	qsort(arr, length,				\
-	      sizeof(arr[0]), compare_fn_##TYPE); 	\
+	      sizeof(TYPE), compare_fn_##TYPE); 	\
 }
 
 sort_array(uint64_t)

@@ -45,17 +45,17 @@ int setup_fd(const char *name) {
 	return fd;
 }
 
-uint64_t times[RING_SIZE * ITERATIONS] = {};
+uint64_t times[RING_SIZE * ITERATIONS];
 int do_send(struct shm_mem *ptr) {
 	struct payload *snd_slot, *rcv_slot;
 	uint64_t start, end;
 	int numbers[RING_SIZE];
-	int sum = 0, retsum = 0;
-	long long total_time;
-	int i, x;
+	long long sum = 0, retsum = 0;
+	long long i, x;
 
 	// Zero-out all the memory
 	memset(ptr, 0, sizeof(struct shm_mem));
+	memset(times, 0, sizeof(times));
 
 	for (i = 0; i < RING_SIZE * 2; i++) {
 		ck_spinlock_fas_init(&ptr->payloads[i].spinlock);
@@ -68,17 +68,6 @@ int do_send(struct shm_mem *ptr) {
 		numbers[i] = x;
 	}
 	sum = sum * ITERATIONS;
-
-	for (i = 0; i < RING_SIZE; i++) {
-		snd_slot = &ptr->payloads[(i % RING_SIZE) * 2];
-		rcv_slot = &ptr->payloads[((i % RING_SIZE) * 2) + 1];
-		snd_slot->val = numbers[i % RING_SIZE];
-		// Concurrency kit should insert a memory barrier here for us
-		ck_spinlock_fas_unlock(&snd_slot->spinlock);
-		//sched_yield();
-		// Now do the receive
-		ck_spinlock_fas_lock(&rcv_slot->spinlock);
-	}
 
 	start = rdtscp();
 	for (i = 0; i < (ITERATIONS * RING_SIZE); i++) {
@@ -96,18 +85,19 @@ int do_send(struct shm_mem *ptr) {
 		start = end;
 	}
 
-	sort_uint64_t_array(times, ARRAY_SIZE(times));
-	printf("Median Iteration Time: %lu\n", times[ARRAY_SIZE(times)/2]);
-	printf("Min Time: %lu\n", times[0]);
-//	total_time = 1000000000 * (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
-//	printf("Time per iteration: %lld\n", total_time / (ITERATIONS * RING_SIZE));
+	/* Ignore the first sample */
+	uint64_t *times2 = &times[1];
+	sort_uint64_t_array(times2, ARRAY_SIZE(times) - 1);
+	printf("Median Iteration Time: %lu\n", times[(ARRAY_SIZE(times) - 1)/2]);
+	printf("Min Time: %lu\n", times2[0]);
+	printf("Max Time: %lu\n", times2[(ARRAY_SIZE(times) - 2)]);
+
 	if (retsum != (sum * 2)) {
 		printf("Something broke\n");
+		printf("Sum: %llu\n", sum);
+		printf("RetSum: %llu\n", retsum);
+		return 1;
 	}
-	printf("Sum: %d\n", sum);
-	printf("RetSum: %d\n", retsum);
-
-
 	return 0;
 }
 
@@ -115,7 +105,7 @@ int do_recv(struct shm_mem *ptr) {
 	struct payload *snd_slot, *rcv_slot;
 	int i;
 
-	for (i = 0; i < ((ITERATIONS + 1) * RING_SIZE); i++) {
+	for (i = 0; i < (ITERATIONS * RING_SIZE); i++) {
 		snd_slot = &ptr->payloads[(i % RING_SIZE) * 2];
 		rcv_slot = &ptr->payloads[((i % RING_SIZE) * 2) + 1];
 		// Wait for the "message"
@@ -155,7 +145,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	fd = setup_fd("woop");
+	fd = setup_fd("bench");
 	if (mode == MODE_SEND) {
 		ret = ftruncate(fd, SHM_SIZE);
 		if (ret == -1) {
@@ -178,7 +168,6 @@ int main(int argc, char *argv[]) {
 		ret = do_recv(ptr);
 		break;
 	}
-
 	getrusage(RUSAGE_SELF, &usage_end);
 	printf("Invol Ctx Switches: %ld\nVoluntary Ctx Switches: %ld\n", usage_end.ru_nivcsw - usage_start.ru_nivcsw, usage_end.ru_nvcsw - usage_start.ru_nvcsw);
 

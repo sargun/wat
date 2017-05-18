@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	sort_uint64_t_array(times, ARRAY_SIZE(times));
-	printf("Average cycles per getpid: %lu\n", total_cycles / ITERATIONS);
+	printf("Average cycles per sched_yield: %lu\n", total_cycles / ITERATIONS);
 
 	printf("Minimum cycles per iteration: %lu\n", times[0]);
 	printf("Median cycles per iteration: %lu\n", times[ARRAY_SIZE(times) / 2]);
