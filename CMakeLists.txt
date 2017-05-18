@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 set(CMAKE_BUILD_TYPE RELEASE)
 
-set(CMAKE_C_FLAGS "-march=native -Wall")
+set(CMAKE_C_FLAGS "-march=native -Wall -D_GNU_SOURCE=1")
 set(CMAKE_C_FLAGS_RELEASE "-O3")
 
 SET(CMAKE_C_STANDARD 11)
@@ -18,3 +18,5 @@ ADD_EXECUTABLE(sy "sy.c")
 ADD_EXECUTABLE(rdtscp "rdtscp.c")
 
 ADD_EXECUTABLE(cgt "cgt.c")
+
+ADD_EXECUTABLE(gp "gp.c")
