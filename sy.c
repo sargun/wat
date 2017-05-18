@@ -3,22 +3,39 @@
 #include <stdio.h>
 #include <sched.h>
 #include <sys/mman.h>
-
+#include "util.h"
+#include "rdtscp.h"
 
 #define ITERATIONS 500000
+uint64_t times[ITERATIONS];
+
 
 int main(int argc, char *argv[]) {
-	struct timespec start, end;
-	long long total_time;
+	uint64_t t1, t2, total_cycles;
 	int i;
 
-	clock_gettime(CLOCK_MONOTONIC, &start);
+	memset(times, 0, sizeof(times));
 
+	t1 = rdtscp();
 	for (i = 0; i < ITERATIONS; i++) {
 		sched_yield();
 	}
-	clock_gettime(CLOCK_MONOTONIC, &end);
-	total_time = 1000000000 * (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
-	printf("NS per iteration: %lld\n", total_time / ITERATIONS);
+	t2 = rdtscp();
+	total_cycles = t2 - t1;
+
+	t1 = rdtscp();
+	for (i = 0; i < ITERATIONS; i++) {
+		sched_yield();
+		t2 = rdtscp();
+		times[i] = t2 - t1;
+		t1 = t2;
+	}
+
+	sort_uint64_t_array(times, ARRAY_SIZE(times));
+	printf("Average cycles per getpid: %lu\n", total_cycles / ITERATIONS);
+
+	printf("Minimum cycles per iteration: %lu\n", times[0]);
+	printf("Median cycles per iteration: %lu\n", times[ARRAY_SIZE(times) / 2]);
+	printf("Maximum cycles per iteration: %lu\n", times[ARRAY_SIZE(times) - 1]);
 }
 
