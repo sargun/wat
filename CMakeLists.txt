@@ -16,3 +16,5 @@ TARGET_LINK_LIBRARIES(bench2 rt)
 ADD_EXECUTABLE(sy "sy.c")
 
 ADD_EXECUTABLE(rdtscp "rdtscp.c")
+
+ADD_EXECUTABLE(cgt "cgt.c")
