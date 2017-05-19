@@ -63,7 +63,7 @@ int do_send(int fd) {
 	sort_uint64_t_array(times2, ARRAY_SIZE(times) - 1);
 	printf("Median Iteration Time: %lu\n", times[(ARRAY_SIZE(times) - 1)/2]);
 	printf("Min Time: %lu\n", times2[0]);
-	printf("Max Time: %lu\n", times2[(ARRAY_SIZE(times) - 2)]);
+	printf("95th percentile Time: %lu\n", times2[P(95, times)]);
 
 	if (retsum != (sum * 2)) {
 		printf("Something broke\n");
