@@ -7,7 +7,7 @@
 #include <ck_spinlock.h>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#define P(percentile, arr)	((ARRAY_SIZE(arr)/20)*19)
+#define P(percentile, arr)	(int)(((double)percentile / 100.0) * ARRAY_SIZE(arr))
 
 #define likely(x)	__builtin_expect((x),1)
 #define unlikely(expr)	__builtin_expect(!!(expr), 0)
