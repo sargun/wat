@@ -5,7 +5,7 @@
 
 #include "rdtscp.h"
 
-#define ITERATIONS 5000000
+#define ITERATIONS 50000000
 
 int main(int argc, char *argv[]) {
 	struct timespec start, end;
