@@ -11,7 +11,7 @@
 #include "rdtscp.h"
 #include "util.h"
 
-#define ITERATIONS 500000
+#define ITERATIONS 5000000
 uint64_t times[ITERATIONS];
 
 
