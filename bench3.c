@@ -26,7 +26,7 @@
 
 struct payload {
 	long val; // mtype
-} __attribute__((aligned(8)));
+};
 
 
 uint64_t times[ITERATIONS * RING_SIZE];
