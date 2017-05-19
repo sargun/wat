@@ -18,7 +18,7 @@
 #include "rdtscp.h"
 
 #define RING_SIZE 1024
-#define ITERATIONS 100000
+#define ITERATIONS 200000
 
 struct payload {
 	ck_spinlock_fas_t spinlock;
@@ -57,6 +57,7 @@ void bench2(struct shm_mem *ptr) {
 
 	/* Zero-out all the memory to avoid page faults */
 	memset(ptr, 0, sizeof(struct shm_mem));
+	memset(times, 0, sizeof(times));
 
 	for (i = 0; i < RING_SIZE * 2; i++) {
 		ck_spinlock_fas_init(&ptr->payloads[i].spinlock);
@@ -102,7 +103,7 @@ void bench2(struct shm_mem *ptr) {
 	printf("Average cycles: %llu\n", total_cycles/ARRAY_SIZE(times));
 	printf("Median Iteration Cycles: %lu\n", times[ARRAY_SIZE(times)/2]);
 	printf("Min Cycles: %lu\n", times[0]);
-	printf("Max Cycles: %lu\n", times[ARRAY_SIZE(times) - 1]);
+	printf("95th Percentile Cycles: %lu\n", times[P(95, times)]);
 	printf("Invol Ctx Switches: %ld\nVoluntary Ctx Switches: %ld\n", usage_end.ru_nivcsw - usage_start.ru_nivcsw, usage_end.ru_nvcsw - usage_start.ru_nvcsw);
 	if (retsum != (sum * 2)) {
 		printf("Something broke\n");
