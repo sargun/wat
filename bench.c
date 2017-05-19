@@ -24,7 +24,7 @@
 struct payload {
 	ck_spinlock_fas_t spinlock;
 	__u8 val;
-} __attribute__((aligned(64)));
+} __attribute__((aligned(8)));
 
 struct shm_mem {
 	// Even entries are used to send, odds are used to reply
