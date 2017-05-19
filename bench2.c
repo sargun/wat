@@ -18,7 +18,7 @@
 #include "rdtscp.h"
 
 #define RING_SIZE 1024
-#define ITERATIONS 5000
+#define ITERATIONS 50000
 
 struct payload {
 	ck_spinlock_fas_t spinlock;
