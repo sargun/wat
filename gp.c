@@ -41,6 +41,6 @@ int main(int argc, char *argv[]) {
 
 	printf("Minimum cycles per iteration: %lu\n", times[0]);
 	printf("Median cycles per iteration: %lu\n", times[ARRAY_SIZE(times) / 2]);
-	printf("Maximum cycles per iteration: %lu\n", times[ARRAY_SIZE(times) - 1]);
+	printf("95th percentile cycles per iteration: %lu\n", times[P(95, times)]);
 }
 
