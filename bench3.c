@@ -24,18 +24,12 @@
 #define ITERATIONS	500000
 #define RING_SIZE	8
 
-struct payload {
-	long val; // mtype
-};
-
-
 uint64_t times[ITERATIONS * RING_SIZE];
 int do_send(int in, int out) {
 	uint64_t start, end;
-	int numbers[RING_SIZE];
+	long numbers[RING_SIZE];
 	long long sum = 0, retsum = 0;
-	struct payload p;
-	long long i, x;
+	long long i, x, p;
 
 	// Zero-out all the memory
 	memset(times, 0, sizeof(times));
@@ -49,10 +43,9 @@ int do_send(int in, int out) {
 
 	start = rdtscp();
 	for (i = 0; i < (ITERATIONS * RING_SIZE); i++) {
-		p.val = numbers[i % RING_SIZE];
-		syscall(SYS_msgsnd, out, &p, sizeof(p) - sizeof(long), 0);
-		syscall(SYS_msgrcv, in, &p, sizeof(p) - sizeof(long), 0, 0);
-		retsum = retsum + p.val;
+		syscall(SYS_msgsnd, out, &numbers[i % RING_SIZE], 0 /* API automatically adds sizeof(long) */, 0);
+		syscall(SYS_msgrcv, in, &p, 0 /* API automatically adds sizeof(long) */, 0, 0);
+		retsum = retsum + p;
 
 		end = rdtscp();
 		times[i] = end - start;
@@ -76,12 +69,12 @@ int do_send(int in, int out) {
 }
 
 int do_recv(int in, int out) {
-	struct payload p;
+	long p;
 	int i;
 
 	for (i = 0; i < (ITERATIONS * RING_SIZE); i++) {
 		syscall(SYS_msgrcv, in, &p, sizeof(p) - sizeof(long), 0, 0);
-		p.val = p.val * 2;
+		p = p * 2;
 		syscall(SYS_msgsnd, out,  &p, sizeof(p) - sizeof(long), 0);
 	}
 	return 0;
