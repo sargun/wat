@@ -253,6 +253,8 @@ Median cycles per iteration: 162
 95th percentile cycles per iteration: 164
 ```
 ## RDTSCP: How long does is a nanosecond (or a cycle)?
+Use this to convert from cycles (above) to nanoseconds.
+
 ```
 Nanoseconds per rdtscp: 8
 Total Nanoseconds: 424982501
